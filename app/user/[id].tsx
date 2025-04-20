@@ -4,8 +4,6 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 import Loader from "@/components/Loader";
-import { styles } from "@/styles/profile.styles";
-import AppHeader from "@/components/AppHeader";
 import UserProfile from "@/components/UserProfile";
 
 export default function UserProfilePage() {

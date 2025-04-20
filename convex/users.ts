@@ -47,8 +47,9 @@ export const getUserByClerkId = query({
 
 export const updateUser = mutation({
   args: {
-    fullname: v.string(),
+    fullname: v.optional(v.string()),
     bio: v.optional(v.string()),
+    username: v.string(),
   },
   handler: async (ctx, args) => {
     const currentUser = await getAuthenticatedUser(ctx);
@@ -56,6 +57,7 @@ export const updateUser = mutation({
     await ctx.db.patch(currentUser._id, {
       fullname: args.fullname,
       bio: args.bio,
+      username: args.username,
     });
   },
 });
@@ -127,10 +129,10 @@ async function updateFollowCount(
 
   if (follower && following) {
     await ctx.db.patch(followerId, {
-      following: following.following + (add ? 1 : -1),
+      following: follower.following + (add ? 1 : -1),
     });
     await ctx.db.patch(followingId, {
-      followers: follower.followers + (add ? 1 : -1),
+      followers: following.followers + (add ? 1 : -1),
     });
   }
 }
@@ -147,3 +149,40 @@ export async function getAuthenticatedUser(ctx: QueryCtx | MutationCtx) {
 
   return currentUser;
 }
+
+export const searchUserByUsername = query({
+  args: { username: v.string() },
+  handler: async (ctx, args) => {
+    const currentUser = await getAuthenticatedUser(ctx);
+
+    const users = await ctx.db.query("users").collect();
+
+    const filteredUsers = users.filter(
+      (user) =>
+        user._id !== currentUser._id && user.username.includes(args.username)
+    );
+
+    const usersWithNecessaryData = filteredUsers.map((user) => ({
+      _id: user._id,
+      username: user.username,
+      image: user.image,
+    }));
+
+    return usersWithNecessaryData;
+  },
+});
+
+export const isUsernameAvailable = query({
+  args: { username: v.string() },
+  handler: async (ctx, args) => {
+    const currentUser = await getAuthenticatedUser(ctx);
+    if (currentUser.username === args.username) return true;
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_username", (q) => q.eq("username", args.username))
+      .first();
+
+    return !user;
+  },
+});

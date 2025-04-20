@@ -11,6 +11,7 @@ type AppHeaderProps = {
   showLogoutButton?: boolean;
   headerStyle?: object;
   showLeftButton?: boolean;
+  showChatButton?: boolean;
   children: React.ReactNode;
 };
 
@@ -19,6 +20,7 @@ export default function AppHeader({
   showLogoutButton,
   headerStyle,
   showLeftButton,
+  showChatButton,
   children,
 }: AppHeaderProps) {
   const { signOut } = useAuth();
@@ -37,16 +39,29 @@ export default function AppHeader({
           style={[
             styles.headerTitle,
             headerStyle,
-            { flex: 1, textAlign: showLeftButton ? "center" : "left" },
+            {
+              flex: 1,
+              textAlign: showLeftButton ? "center" : "left",
+            },
           ]}
         >
           {headerText || "spotlight"}
         </Text>
 
-        {showLogoutButton && (
+        {showLogoutButton ? (
           <TouchableOpacity onPress={() => signOut()}>
             <Ionicons name="log-out-outline" size={24} color={COLORS.white} />
           </TouchableOpacity>
+        ) : (
+          showChatButton && (
+            <TouchableOpacity onPress={() => router.push("/chat")}>
+              <Ionicons
+                name="chatbubble-ellipses-outline"
+                size={24}
+                color={COLORS.white}
+              />
+            </TouchableOpacity>
+          )
         )}
       </View>
 

@@ -183,3 +183,45 @@ export const getPostsByUserId = query({
       .collect();
   },
 });
+
+export const getPostById = query({
+  args: {
+    postId: v.id("posts"),
+  },
+  handler: async (ctx, args) => {
+    const currentUser = await getAuthenticatedUser(ctx);
+
+    const post = await ctx.db
+      .query("posts")
+      .withIndex("by_id", (q) => q.eq("_id", args.postId))
+      .first();
+    if (!post) throw new Error("Post not found");
+
+    const postAuthor = (await ctx.db.get(post.userId))!;
+    const isLiked = await ctx.db
+      .query("likes")
+      .withIndex("by_user_and_post", (q) =>
+        q.eq("userId", currentUser._id).eq("postId", post._id)
+      )
+      .first();
+    const isBookmarked = await ctx.db
+      .query("bookmarks")
+      .withIndex("by_user_and_post", (q) =>
+        q.eq("userId", currentUser._id).eq("postId", post._id)
+      )
+      .first();
+
+    const postWithAuthorInfoAndUserData = {
+      ...post,
+      author: {
+        _id: postAuthor?._id,
+        username: postAuthor?.username,
+        image: postAuthor?.image,
+      },
+      isLiked: !!isLiked,
+      isBookmarked: !!isBookmarked,
+    };
+
+    return postWithAuthorInfoAndUserData;
+  },
+});

@@ -11,7 +11,7 @@ export default function NotificationItem({ notification }: any) {
   return (
     <View style={styles.notificationItem}>
       <View style={styles.notificationContent}>
-        <Link href="/" asChild>
+        <Link href={`/user/${notification.sender._id}`} asChild>
           <TouchableOpacity style={styles.avatarContainer}>
             <Image
               source={notification.sender.image}
@@ -32,7 +32,7 @@ export default function NotificationItem({ notification }: any) {
         </Link>
 
         <View style={styles.notificationInfo}>
-          <Link href="/" asChild>
+          <Link href={`/user/${notification.sender._id}`} asChild>
             <TouchableOpacity>
               <Text style={styles.username}>
                 {notification.sender.username}
@@ -57,12 +57,16 @@ export default function NotificationItem({ notification }: any) {
       </View>
 
       {notification.postImage && (
-        <Image
-          source={notification.postImage}
-          style={styles.postImage}
-          contentFit="cover"
-          transition={200}
-        />
+        <Link href={`/post/${notification.postId}`} asChild>
+          <TouchableOpacity>
+            <Image
+              source={notification.postImage}
+              style={styles.postImage}
+              contentFit="cover"
+              transition={200}
+            />
+          </TouchableOpacity>
+        </Link>
       )}
     </View>
   );

@@ -1,19 +1,18 @@
 import AppHeader from "@/components/AppHeader";
 import Loader from "@/components/Loader";
+import { NoDataFound } from "@/components/NoDataFound";
 import Post from "@/components/Post";
 import Stories from "@/components/Stories";
-import { COLORS } from "@/constants/theme";
 import { api } from "@/convex/_generated/api";
 import { useQuery } from "convex/react";
-import { FlatList, Text, View } from "react-native";
+import { FlatList } from "react-native";
 
 export default function Index() {
   const posts = useQuery(api.posts.getFeedPosts);
   if (posts === undefined) return <Loader />;
-  if (posts.length === 0) return <NoPostsFound />;
 
   return (
-    <AppHeader showLogoutButton>
+    <AppHeader showChatButton>
       <FlatList
         data={posts}
         renderItem={({ item }) => <Post post={item} />}
@@ -21,22 +20,10 @@ export default function Index() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 60 }}
         ListHeaderComponent={<Stories />}
+        ListEmptyComponent={
+          <NoDataFound iconName="images-outline" text="No posts yet" />
+        }
       />
     </AppHeader>
   );
 }
-
-const NoPostsFound = () => (
-  <AppHeader showLogoutButton>
-    <View
-      style={{
-        flex: 1,
-        backgroundColor: COLORS.background,
-        justifyContent: "center",
-        alignItems: "center",
-      }}
-    >
-      <Text style={{ fontSize: 20, color: COLORS.primary }}>No posts yet</Text>
-    </View>
-  </AppHeader>
-);

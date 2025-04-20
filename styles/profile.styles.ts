@@ -189,13 +189,13 @@ export const styles = StyleSheet.create({
     width: width,
     height: width,
   },
-  followButton: {
+  profileButton: {
     backgroundColor: COLORS.primary,
     paddingHorizontal: 24,
     paddingVertical: 8,
     borderRadius: 8,
     marginTop: 16,
-    width: "100%",
+    width: "50%",
     borderWidth: 1,
     borderColor: COLORS.primary,
   },

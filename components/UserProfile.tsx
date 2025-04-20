@@ -1,7 +1,7 @@
 import { api } from "@/convex/_generated/api";
 import { Doc, Id } from "@/convex/_generated/dataModel";
 import { useAuth } from "@clerk/clerk-expo";
-import { ReactMutation, useMutation, useQuery } from "convex/react";
+import { ReactMutation, useConvex, useMutation, useQuery } from "convex/react";
 import { useState } from "react";
 import Loader from "./Loader";
 import AppHeader from "./AppHeader";
@@ -23,9 +23,10 @@ import {
 import { Image } from "expo-image";
 import { COLORS } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
-import NoPostsFound from "./NoPostsFound";
 import PostItem from "./PostItem";
 import { FunctionReference } from "convex/server";
+import { NoDataFound } from "./NoDataFound";
+import { useRouter } from "expo-router";
 
 type UserProfileProps = {
   currentUser: Doc<"users">;
@@ -51,22 +52,51 @@ export default function UserProfile({
   const { userId: userClerkId } = useAuth();
   const isMyProfile = userClerkId === currentUser.clerkId;
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
-  const [selectedPost, setSelectedPost] = useState<Doc<"posts"> | null>(null);
+  const convex = useConvex();
+  const router = useRouter();
 
   const posts = useQuery(
     api.posts.getPostsByUserId,
     currentUser._id ? { userId: currentUser._id } : {}
   );
   const updateProfile = useMutation(api.users.updateUser);
+  const createNewChat = useMutation(api.chat.createChat);
 
   const [editedProfile, setEditedProfile] = useState({
     fullname: currentUser?.fullname || "",
     bio: currentUser?.bio || "",
+    username: currentUser?.username || "",
   });
 
   const handleSaveProfile = async () => {
-    await updateProfile(editedProfile);
-    setIsEditModalVisible(false);
+    try {
+      if (editedProfile.username.length < 3) {
+        alert("Username must be at least 3 characters long.");
+        return;
+      }
+      const isUsernameAvailable = await convex.query(
+        api.users.isUsernameAvailable,
+        {
+          username: editedProfile.username,
+        }
+      );
+      if (!isUsernameAvailable) {
+        alert("Username is already taken.");
+        return;
+      }
+      await updateProfile(editedProfile);
+      setIsEditModalVisible(false);
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      alert("Failed to update profile. Please try again later.");
+    }
+  };
+
+  const handleMessageButtonClick = async () => {
+    const newChatId = await createNewChat({
+      userId: currentUser._id as Id<"users">,
+    });
+    router.push(`/chat/${newChatId}`);
   };
 
   if (!currentUser || posts === undefined) return <Loader />;
@@ -106,7 +136,9 @@ export default function UserProfile({
             </View>
           </View>
 
-          <Text style={styles.name}>{currentUser?.fullname}</Text>
+          {currentUser.fullname && (
+            <Text style={styles.name}>{currentUser?.fullname}</Text>
+          )}
           {currentUser?.bio && (
             <Text style={styles.bio}>{currentUser?.bio}</Text>
           )}
@@ -120,6 +152,12 @@ export default function UserProfile({
                 >
                   <Text style={styles.editButtonText}>Edit Profile</Text>
                 </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.editButton}
+                  onPress={() => router.push("/(tabs)/bookmarks")}
+                >
+                  <Text style={styles.editButtonText}>Saved Posts</Text>
+                </TouchableOpacity>
                 <TouchableOpacity style={styles.shareButton}>
                   <Ionicons
                     name="share-outline"
@@ -129,42 +167,53 @@ export default function UserProfile({
                 </TouchableOpacity>
               </>
             ) : (
-              <Pressable
-                style={[
-                  styles.followButton,
-                  isFollowing && styles.followingButton,
-                ]}
-                onPress={async () => {
-                  if (onFollowButtonClick) {
-                    await onFollowButtonClick({ followingId: currentUser._id });
-                  }
-                }}
-              >
-                <Text
+              <>
+                <TouchableOpacity
                   style={[
-                    styles.followButtonText,
-                    isFollowing && styles.followingButtonText,
+                    styles.profileButton,
+                    isFollowing && styles.followingButton,
                   ]}
+                  onPress={async () => {
+                    if (onFollowButtonClick) {
+                      await onFollowButtonClick({
+                        followingId: currentUser._id,
+                      });
+                    }
+                  }}
                 >
-                  {isFollowing ? "Following" : "Follow"}
-                </Text>
-              </Pressable>
+                  <Text
+                    style={[
+                      styles.followButtonText,
+                      isFollowing && styles.followingButtonText,
+                    ]}
+                  >
+                    {isFollowing ? "Following" : "Follow"}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.profileButton, styles.editButton]}
+                  onPress={handleMessageButtonClick}
+                >
+                  <Text style={styles.editButtonText}>Message</Text>
+                </TouchableOpacity>
+              </>
             )}
           </View>
         </View>
-
-        {posts?.length === 0 && <NoPostsFound />}
 
         <FlatList
           data={posts}
           numColumns={3}
           scrollEnabled={false}
           renderItem={({ item }) => (
-            <PostItem
-              postImage={item.imageUrl}
-              onPress={() => setSelectedPost(item)}
-            />
+            <PostItem postImage={item.imageUrl} postId={item._id} />
           )}
+          keyExtractor={(item) => item._id}
+          ListEmptyComponent={
+            <View style={styles.noPostsContainer}>
+              <NoDataFound iconName="images-outline" text="No posts yet" />
+            </View>
+          }
         />
       </ScrollView>
 
@@ -188,6 +237,21 @@ export default function UserProfile({
                   >
                     <Ionicons name="close" size={24} color={COLORS.white} />
                   </TouchableOpacity>
+                </View>
+
+                <View style={styles.inputContainer}>
+                  <Text style={styles.inputLabel}>Username</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={editedProfile.username}
+                    onChangeText={(text) =>
+                      setEditedProfile((prev) => ({
+                        ...prev,
+                        username: text.toLocaleLowerCase().trim(),
+                      }))
+                    }
+                    placeholderTextColor={COLORS.grey}
+                  />
                 </View>
 
                 <View style={styles.inputContainer}>
@@ -227,31 +291,6 @@ export default function UserProfile({
           </TouchableWithoutFeedback>
         </Modal>
       )}
-
-      <Modal
-        visible={!!selectedPost}
-        animationType="fade"
-        transparent={true}
-        onRequestClose={() => setSelectedPost(null)}
-      >
-        <View style={styles.modalBackdrop}>
-          {selectedPost && (
-            <View style={styles.postDetailContainer}>
-              <View style={styles.postDetailHeader}>
-                <TouchableOpacity onPress={() => setSelectedPost(null)}>
-                  <Ionicons name="close" size={24} color={COLORS.white} />
-                </TouchableOpacity>
-              </View>
-
-              <Image
-                source={selectedPost.imageUrl}
-                cachePolicy="memory-disk"
-                style={styles.postDetailImage}
-              />
-            </View>
-          )}
-        </View>
-      </Modal>
     </AppHeader>
   );
 }
